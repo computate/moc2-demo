@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-setup-tasks
+  namespace: computate-freeipa
+data:
+  main.yaml: |
+    ---
+    - name: Get postgres pod by label
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: computate-freeipa
+        label_selectors:
+          - postgres-operator.crunchydata.com/role=master
+      register: postgres_pod_info
+    - name: Set postgres pod name
+      set_fact:
+        POSTGRES_POD_NAME: "{{ postgres_pod_info.resources[0].metadata.name }}"
+        POSTGRES_KEYCLOAK_PASSWORD: "{{ query('kubernetes.core.k8s', kind='Secret', resource_name='postgres-pguser-keycloak', namespace='computate-freeipa')[0].data['password'] | b64decode }}"
+    - name: "Alter keycloak authorization tables"
+      kubernetes.core.k8s_exec:
+        namespace: computate-freeipa
+        pod: "{{ POSTGRES_POD_NAME }}"
+        command: >-
+          env psql -U keycloak keycloak -c 
+          "
+          alter table protocol_mapper alter column id type character varying(255);
+          alter table protocol_mapper_config alter column protocol_mapper_id type character varying(255);
+          alter table resource_server_policy alter column id type character varying(255);
+          alter table policy_config alter column policy_id type character varying(255);
+          alter table associated_policy alter column policy_id type character varying(255);
+          alter table associated_policy alter column associated_policy_id type character varying(255);
+          "

@@ -1,0 +1,25 @@
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: lldap
+  annotations:
+    acme.cert-manager.io/http01-ingress-class: openshift-default
+    cert-manager.io/cluster-issuer: letsencrypt-production-http01
+spec:
+  ingressClassName: openshift-default
+  tls:
+    - hosts:
+        - lldap.computate.org
+      secretName: lldap-cert
+  rules:
+    - host: lldap.computate.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lldap
+                port:
+                  number: 17170
+

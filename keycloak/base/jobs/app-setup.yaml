@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: app-setup
+  namespace: computate-freeipa
+spec:
+  backoffLimit: 1000
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: app-setup
+      volumes:
+        - name: app-setup-playbook
+          configMap:
+            name: app-setup-playbook
+        - name: app-setup-tasks
+          configMap:
+            name: app-setup-tasks
+        - name: home
+          emptyDir: {}
+        - name: ansible-tmp
+          emptyDir: {}
+      containers:
+        - name: app-setup
+          image: quay.io/nerc-images/keycloak-ansible:latest
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: app-setup-playbook
+              mountPath: /home/ansible/.ansible/playbooks/
+            - name: app-setup-tasks
+              mountPath: /home/ansible/.ansible/roles/app-setup/tasks/
+            - name: home
+              mountPath: /home/ansible
+            - name: ansible-tmp
+              mountPath: /home/ansible/.ansible/tmp/
+          env:
+            - name: ANSIBLE_ROLES_PATH
+              value: /home/ansible/.ansible/roles
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          command: ["/bin/bash", "-c", "--"]
+          args:
+            - |
+                ansible-playbook /home/ansible/.ansible/playbooks/app-setup.yaml

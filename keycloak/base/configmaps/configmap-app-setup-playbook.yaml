@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-setup-playbook
+  namespace: computate-freeipa
+data:
+  app-setup.yaml: |
+    ---
+    - name: app-setup
+      hosts: localhost
+      connection: local
+      gather_facts: false
+      roles:
+        - app-setup

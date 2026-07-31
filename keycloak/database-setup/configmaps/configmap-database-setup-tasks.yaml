@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-setup-tasks
+  namespace: computate-freeipa
+data:
+  main.yaml: |
+    ---
+    - name: Get postgres pod by label
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: computate-freeipa
+        label_selectors:
+          - postgres-operator.crunchydata.com/role=master
+      register: postgres_pod_info
+    - name: Set postgres pod name
+      set_fact:
+        POSTGRES_POD_NAME: "{{ postgres_pod_info.resources[0].metadata.name }}"
+        POSTGRES_KEYCLOAK_PASSWORD: "{{ query('kubernetes.core.k8s', kind='Secret', resource_name='postgres-pguser-keycloak', namespace='computate-freeipa')[0].data['password'] | b64decode }}"
+    - name: "Create database user keycloak"
+      kubernetes.core.k8s_exec:
+        namespace: computate-freeipa
+        pod: "{{ POSTGRES_POD_NAME }}"
+        command: >-
+          env psql -U postgres postgres -c 
+          "create user keycloak password '{{ POSTGRES_KEYCLOAK_PASSWORD }}';"
+      ignore_errors: true
+      register: create_database_user
+    - name: Test create database user
+      fail:
+        msg: "{{ command_status }}"
+      when: create_database_user.failed and create_database_user is not search("already exists")
+    - name: "Create database keycloak"
+      kubernetes.core.k8s_exec:
+        namespace: computate-freeipa
+        pod: "{{ POSTGRES_POD_NAME }}"
+        command: >-
+          env psql -U postgres postgres -c 
+          "create database keycloak owner keycloak;"
+      ignore_errors: true
+      register: create_database
+    - name: Test create database
+      fail:
+        msg: "{{ command_status }}"
+      when: create_database.failed and create_database is not search("already exists")

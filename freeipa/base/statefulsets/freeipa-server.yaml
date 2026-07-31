@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: freeipa-server
+  labels:
+    app: freeipa-server
+spec:
+  serviceName: freeipa-server-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: freeipa-server
+  template:
+    metadata:
+      labels:
+        app: freeipa-server
+    spec:
+      serviceAccountName: freeipa
+      hostUsers: false
+      containers:
+        - name: freeipa-server
+          image: quay.io/freeipa/freeipa-server:fedora-43
+          imagePullPolicy: IfNotPresent
+          tty: true
+          ports:
+          - containerPort: 80
+            protocol: TCP
+          - containerPort: 443
+            protocol: TCP
+          - containerPort: 53
+            protocol: UDP
+          - containerPort: 88
+            protocol: TCP
+          - containerPort: 88
+            protocol: UDP
+          env:
+            - name: IPA_SERVER_IP
+              value: "no-update"
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: freeipa-server-password
+                  key: admin.password
+            - name: IPA_SERVER_HOSTNAME
+              value: freeipa.computate.org
+            - name: IPA_SERVER_INSTALL_OPTS
+              value: "-U -r COMPUTATE.ORG -n computate.org -h freeipa.computate.org --setup-dns --no-forwarders --no-ntp --ip-address=$(POD_IP) --unattended"
+          readinessProbe:
+            exec:
+              command: [ "/usr/bin/systemctl", "status", "ipa" ]
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          dnsPolicy: "None"
+          dnsConfig:
+            nameservers:
+              - 127.0.0.1
+          hostAliases:
+          - ip: "$(POD_IP)"
+            hostnames:
+            - "freeipa.computate.org"
+          setHostnameAsFQDN: true
+
+          securityContext:
+            readOnlyRootFilesystem: true
+            privileged: true
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: freeipa-data
+              mountPath: /data
+            - name: tmp-dir
+              mountPath: /tmp
+            - name: run-dir
+              mountPath: /run
+            - name: etc-hosts-dist
+              mountPath: /etc
+              subPath: hosts.dist
+      volumes:
+        - name: freeipa-data
+          persistentVolumeClaim:
+            claimName: freeipa-data-pvc
+        - name: tmp-dir
+          emptyDir: {}
+        - name: run-dir
+          emptyDir: {}
+        - name: etc-hosts-dist
+          emptyDir: {}
+

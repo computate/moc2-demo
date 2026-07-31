@@ -1,0 +1,29 @@
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: computate-freeipa
+  labels:
+    app: keycloak
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: postgres-primary
+    port: 5432
+    usernameSecret:
+      name: postgres-pguser-keycloak
+      key: user
+    passwordSecret:
+      name: postgres-pguser-keycloak
+      key: password
+  hostname:
+    hostname: keycloak.computate.org
+  http:
+    tlsSecret: keycloak-certificate
+#  ingress:
+#    enabled: true
+#    annotations:
+#      acme.cert-manager.io/http01-ingress-class: openshift-default
+#      cert-manager.io/cluster-issuer: letsencrypt-production-http01
+#      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"

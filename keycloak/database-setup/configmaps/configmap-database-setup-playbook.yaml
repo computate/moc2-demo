@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-setup-playbook
+  namespace: computate-freeipa
+data:
+  database-setup.yaml: |
+    ---
+    - name: database-setup
+      hosts: localhost
+      connection: local
+      gather_facts: false
+      roles:
+        - database-setup
