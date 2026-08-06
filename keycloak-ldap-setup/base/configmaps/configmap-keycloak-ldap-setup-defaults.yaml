@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-ldap-setup-defaults
+  namespace: computateorg
+data:
+  main.yaml: |
+
+    #####################################
+    # Authentication/authorization vars #
+    #####################################
+
+    # The namespace in OpenShift where lldap will run. 
+    LDAP_NAMESPACE: "{{ lookup('env', 'LDAP_NAMESPACE_' + SITE_SHORT_NAME) | default('computate-freeipa', true) }}"
+    # The LDAP connection URL. 
+    LDAP_CONNECTION_URL: "ldap://lldap.{{ LDAP_NAMESPACE }}.svc:3890"
+    # The LDAP secret with the admin credentials. 
+    LDAP_ADMIN_OPENSHIFT_SECRET: "{{ lookup('env', 'LDAP_ADMIN_OPENSHIFT_SECRET_' + SITE_SHORT_NAME) | default('lldap-credentials', true) }}"
+    # The LDAP admin username. 
+    LDAP_ADMIN_USERNAME: "{{ lookup('env', 'LDAP_ADMIN_USERNAME_' + SITE_SHORT_NAME) | default('admin', true) }}"
+    # The LDAP admin password. 
+    LDAP_ADMIN_PASSWORD: "{{ query('kubernetes.core.k8s', kind='Secret', resource_name=LDAP_ADMIN_OPENSHIFT_SECRET, namespace=LDAP_NAMESPACE)[0].data['lldap-ldap-user-pass'] | b64decode }}"
+    # The LDAP bind DN. 
+    LDAP_BIND_DN: "cn={{ LDAP_ADMIN_USERNAME }},ou=people,dc=computate,dc=org"
+    # The LDAP users DN. 
+    LDAP_USERS_DN: "ou=people,dc=computate,dc=org"
+    # The short name for this site
+    SITE_SHORT_NAME: moc
+    # The namespace in OpenShift where Keycloak will run. 
+    AUTH_NAMESPACE: "{{ lookup('env', 'AUTH_NAMESPACE_' + SITE_SHORT_NAME) | default('computate-freeipa', true) }}"
+    # The Auth host name. 
+    AUTH_HOST_NAME: "{{ lookup('env', 'AUTH_HOST_NAME_' + SITE_SHORT_NAME) | default('keycloak.computate.org', true) }}"
+    # The Auth port. 
+    AUTH_PORT: 443
+    # Whether the Auth server uses SSL. 
+    AUTH_SSL: true
+    # Whether the Auth server requires SSL. 
+    AUTH_SSL_REQUIRED: "all"
+    # The Auth realm. 
+    AUTH_REALM: "{{ lookup('env', 'AUTH_REALM_' + SITE_SHORT_NAME) | default(SITE_SHORT_NAME | upper, true) }}"
+    # The Auth client. 
+    AUTH_CLIENT: "{{ lookup('env', 'AUTH_CLIENT_' + SITE_SHORT_NAME) | default(SITE_SHORT_NAME, true) }}"
+    # The Auth openshift secret with the client secret credentials. 
+    AUTH_OPENSHIFT_SECRET: "{{ lookup('env', 'AUTH_OPENSHIFT_SECRET_' + SITE_SHORT_NAME) | default('keycloak-client-' + AUTH_CLIENT, true) }}"
+    # The Auth openshift secret with the admin credentials. 
+    AUTH_ADMIN_OPENSHIFT_SECRET: "{{ lookup('env', 'AUTH_ADMIN_OPENSHIFT_SECRET_' + SITE_SHORT_NAME) | default('keycloak-initial-admin', true) }}"
+    # The Auth admin username. 
+    AUTH_ADMIN_USERNAME: "{{ query('kubernetes.core.k8s', kind='Secret', resource_name=AUTH_ADMIN_OPENSHIFT_SECRET, namespace=AUTH_NAMESPACE)[0].data['username'] | b64decode }}"
+    # The Auth admin password. 
+    AUTH_ADMIN_PASSWORD: "{{ query('kubernetes.core.k8s', kind='Secret', resource_name=AUTH_ADMIN_OPENSHIFT_SECRET, namespace=AUTH_NAMESPACE)[0].data['password'] | b64decode }}"
+    # The Auth URL. 
+    AUTH_URL: "https://keycloak.computate.org"
+    # The Auth URL to retrieve tokens. 
+    AUTH_TOKEN_URI: "/realms/{{ AUTH_REALM }}/protocol/openid-connect/token"
+    # The OpenAPI ID for the openId spec. 
+    AUTH_OPEN_API_ID: "openIdConnect"
+    # The auth callback URI. 
+    AUTH_CALLBACK_URI: "/callback"
+    # The auth logout URI. 
+    AUTH_LOGOUT_URI: "/logout"
+    # The Auth scope required to be an admin in the site. 
+    AUTH_SCOPE_ADMIN: "{{ lookup('env', 'AUTH_SCOPE_ADMIN_' + SITE_SHORT_NAME) | default('Admin', true) }}"
+    # The Auth scope required to be a super-admin in the site. 
+    AUTH_SCOPE_SUPER_ADMIN: "{{ lookup('env', 'AUTH_SCOPE_SUPER_ADMIN_' + SITE_SHORT_NAME) | default('SuperAdmin', true) }}"
+    # Enables authorization fine-grained resource permissions. 
+    AUTH_FINE_GRAINED_POLICY_PERMISSIONS: true

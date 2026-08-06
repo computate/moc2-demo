@@ -1,0 +1,434 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-ldap-setup-tasks
+  namespace: computateorg
+data:
+  main.yaml: |
+    ---
+
+    - name: "Configure OpenShift LDAP component for master realm"
+      community.general.keycloak_user_federation:
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        name: "ldap"
+        realm: "master"
+        state: present
+        provider_id: ldap
+        provider_type: org.keycloak.storage.UserStorageProvider
+        remove_unspecified_mappers: false
+        config:
+          enabled: true
+          vendor: "other"
+          connectionUrl: "{{ LDAP_CONNECTION_URL }}"
+          startTls: false
+          useTruststoreSpi: "always"
+          connectionPooling: true
+          authType: "simple"
+          bindDn: "{{ LDAP_BIND_DN }}"
+          bindCredential: "{{ LDAP_ADMIN_PASSWORD }}"
+          editMode: "WRITABLE"
+          usersDn: "{{ LDAP_USERS_DN }}"
+          usernameLDAPAttribute: "uid"
+          rdnLDAPAttribute: "uid"
+          uuidLDAPAttribute: "entryuuid"
+          userObjectClasses: "person, inetOrgPerson"
+          searchScope: "1"
+          pagination: true
+          importEnabled: true
+          syncRegistrations: true
+          allowKerberosAuthentication: false
+          useKerberosForPasswordAuthentication: false
+          cachePolicy: "DEFAULT"
+          usePasswordModifyExtendedOp: true
+          validatePasswordPolicy: false
+          trustEmail: false
+          changedSyncPeriod: "-1"
+          fullSyncPeriod: "60"
+          customUserSearchFilter: "(objectClass=person)"
+        mappers:
+          - name: "full name"
+            providerId: "full-name-ldap-mapper"
+            providerType: "org.keycloak.storage.ldap.mappers.LDAPStorageMapper"
+            config:
+              ldap.full.name.attribute: cn
+              read.only: true
+              write.only: false
+          - name: groups
+            providerId: "group-ldap-mapper"
+            providerType: "org.keycloak.storage.ldap.mappers.LDAPStorageMapper"
+            config:
+              membership.attribute.type: "DN"
+              mode: "LDAP_ONLY"
+              user.roles.retrieve.strategy: "LOAD_GROUPS_BY_MEMBER_ATTRIBUTE"
+              groups.dn: "ou=groups,dc=computate,dc=org"
+              groups.relative.create.dn: ""
+              group.name.ldap.attribute: "cn"
+              group.object.classes: "groupOfUniqueNames"
+              preserve.group.inheritance: "true"
+              ignore.missing.groups: "false"
+              membership.ldap.attribute: "uniquemember"
+              membership.user.ldap.attribute: "uid"
+              groups.ldap.filter: ""
+              memberof.ldap.attribute: "memberOf"
+              mapped.group.attributes: ""
+              decode.group.uuid.attribute: true
+              drop.non.existing.groups.during.sync: "false"
+              groups.path: "/"
+
+    - name: "Configure OpenShift client {{ AUTH_CLIENT }}-ldap in master realm"
+      community.general.keycloak_client:
+        state: present
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        realm: "master"
+        id: "{{ AUTH_CLIENT }}-ldap"
+        name: "{{ AUTH_CLIENT }}-ldap"
+        clientId: "{{ AUTH_CLIENT }}-ldap"
+        standardFlowEnabled: true
+        serviceAccountsEnabled: true
+        authorizationServicesEnabled: true
+        frontchannelLogout: true
+        publicClient: false
+        protocol: openid-connect
+        redirectUris:
+          - "{{ AUTH_URL }}/realms/moc/broker/master-idp/endpoint/*"
+        defaultClientScopes:
+          - openid
+          - profile
+        authorizationSettings:
+          decisionStrategy: AFFIRMATIVE
+      register: CLIENT_MASTER_LDAP
+    - name: Get a new Keycloak client secret for {{ AUTH_CLIENT }}-ldap in master realm, passing client_id instead of id
+      community.general.keycloak_clientsecret_info:
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        client_id: '{{ AUTH_CLIENT }}-ldap'
+        realm: master
+      register: MASTER_LDAP_CLIENT_SECRET
+    - name: Set MASTER_LDAP_CLIENT_SECRET_VALUE variable
+      set_fact:
+        MASTER_LDAP_CLIENT_SECRET_VALUE: "{{ MASTER_LDAP_CLIENT_SECRET.clientsecret_info.value }}"
+    - name: "Configure master-idp identity provider in {{ AUTH_CLIENT }} client"
+      community.general.keycloak_identity_provider:
+        state: present
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        enabled: true
+        realm: "{{ AUTH_REALM }}"
+        providerId: keycloak-oidc
+        alias: master-idp
+        displayName: LDAP
+        config:
+          authorizationUrl: "{{ AUTH_URL }}/realms/master/protocol/openid-connect/auth"
+          clientAssertionSigningAlg: ""
+          clientAuthMethod: "client_secret_post"
+          clientId: "master"
+          clientSecret: "{{ MASTER_LDAP_CLIENT_SECRET.clientsecret_info.value }}"
+          guiOrder: ""
+          issuer: "{{ AUTH_URL }}/realms/master"
+          jwksUrl: "{{ AUTH_URL }}/realms/master/protocol/openid-connect/certs"
+          logoutUrl: "{{ AUTH_URL }}/realms/master/protocol/openid-connect/logout"
+          metadataDescriptorUrl: "{{ AUTH_URL }}/realms/master/.well-known/openid-configuration"
+          pkceEnabled: "false"
+          tokenIntrospectionUrl: "{{ AUTH_URL }}/realms/master/protocol/openid-connect/token/introspect"
+          tokenUrl: "{{ AUTH_URL }}/realms/master/protocol/openid-connect/token"
+          useJwksUrl: "true"
+          userInfoUrl: "{{ AUTH_URL }}/realms/master/protocol/openid-connect/userinfo"
+          validateSignature: "true"
+
+    - name: Configure keycloak realm
+      community.general.keycloak_realm:
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        state: present
+        id: "{{ AUTH_REALM }}"
+        realm: "{{ AUTH_REALM }}"
+        enabled: true
+        displayName: "{{ AUTH_REALM }}"
+        registrationAllowed: true
+        resetPasswordAllowed: true
+        editUsernameAllowed: false
+        rememberMe: true
+        verifyEmail: false
+        loginWithEmailAllowed: false
+        accessTokenLifespan: 1800
+        ssoSessionIdleTimeout: 1800
+
+    - name: Enable Unmanaged Attributes
+      community.general.keycloak_userprofile:
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        state: present
+        parent_id: "{{ AUTH_REALM }}"
+        config:
+          kc_user_profile_config:
+            - unmanagedAttributePolicy: ENABLED
+              attributes:
+                - name: username
+                  displayName: ${username}
+                  validations:
+                    length:
+                      min: 3
+                      max: 255
+                    username_prohibited_characters: {}
+                    up_username_not_idn_homograph: {}
+                  annotations: {}
+                  permissions:
+                    view:
+                      - admin
+                      - user
+                    edit:
+                      - admin
+                  multivalued: false
+                - name: email
+                  displayName: ${email}
+                  validations:
+                    email: {}
+                    length:
+                      max: 255
+                  annotations: {}
+                  required:
+                    roles:
+                      - user
+                  permissions:
+                    view:
+                      - admin
+                      - user
+                    edit:
+                      - admin
+                      - user
+                  multivalued: false
+                - name: firstName
+                  displayName: ${firstName}
+                  validations:
+                    length:
+                      max: 255
+                    person_name_prohibited_characters: {}
+                  annotations: {}
+                  required:
+                    roles:
+                      - user
+                  permissions:
+                    view:
+                      - admin
+                      - user
+                    edit:
+                      - admin
+                      - user
+                  multivalued: false
+                - name: lastName
+                  displayName: ${lastName}
+                  validations:
+                    length:
+                      max: 255
+                    person_name_prohibited_characters: {}
+                  annotations: {}
+                  required:
+                    roles:
+                      - user
+                  permissions:
+                    view:
+                      - admin
+                      - user
+                    edit:
+                      - admin
+                      - user
+                  multivalued: false
+                - name: customerProfileId
+                  displayName: ${customerProfileId}
+                  validations:
+                    length:
+                      max: 255
+                    person_name_prohibited_characters: {}
+                  annotations: {}
+                  required:
+                    roles:
+                      - user
+                  permissions:
+                    view:
+                      - admin
+                    edit:
+                      - admin
+                  multivalued: false
+              groups:
+                - name: user-metadata
+                  displayHeader: User metadata
+                  displayDescription: Attributes, which refer to user metadata
+                  annotations: {}
+
+    - name: "Configure keycloak client scope openid"
+      community.general.keycloak_clientscope:
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        state: present
+        id: "{{ AUTH_REALM }}-openid"
+        realm: "{{ AUTH_REALM }}"
+        name: "openid"
+        description: A client scope for the openid client
+        protocol: openid-connect
+        attributes:
+          include.in.token.scope: 'true'
+        protocolMappers:
+          - config:
+              access.token.claim: 'true'
+              introspection.token.claim: 'true'
+            id: "{{ AUTH_REALM }}-openid-sub"
+            name: "sub"
+            protocol: openid-connect
+            protocolMapper: oidc-sub-mapper
+
+    - name: "Configure keycloak client scope {{ AUTH_CLIENT }}"
+      community.general.keycloak_clientscope:
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        state: present
+        id: "{{ AUTH_REALM }}-{{ AUTH_CLIENT }}"
+        realm: "{{ AUTH_REALM }}"
+        name: "{{ AUTH_CLIENT }}"
+        description: A client scope for the {{ AUTH_CLIENT }} client
+        protocol: openid-connect
+        attributes:
+          include.in.token.scope: 'true'
+        protocolMappers:
+          - config:
+              access.token.claim: 'true'
+              id.token.claim: 'false'
+              included.client.audience: '{{ AUTH_CLIENT }}'
+            id: "{{ AUTH_REALM }}-{{ AUTH_CLIENT }}"
+            name: "{{ AUTH_CLIENT }}"
+            protocol: openid-connect
+            protocolMapper: oidc-audience-mapper
+          - config:
+              full.path: "true"
+              introspection.token.claim: "true"
+              userinfo.token.claim: "true"
+              id.token.claim: "true"
+              lightweight.claim: "false"
+              access.token.claim: "true"
+              claim.name: "groups"
+            id: "{{ AUTH_REALM }}-{{ AUTH_CLIENT }}-groups"
+            name: "groups"
+            protocol: openid-connect
+            protocolMapper: oidc-group-membership-mapper
+
+    - name: "Configure keycloak client scope customerProfileId"
+      community.general.keycloak_clientscope:
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        state: present
+        id: "{{ AUTH_REALM }}-customerProfileId"
+        realm: "{{ AUTH_REALM }}"
+        name: "customerProfileId"
+        description: A customerProfileId client scope
+        protocol: openid-connect
+        attributes:
+          include.in.token.scope: 'true'
+          display.on.consent.screen: 'true'
+        protocolMappers:
+          - config:
+              introspection.token.claim: 'true'
+              access.token.claim: 'true'
+              id.token.claim: 'true'
+              userinfo.token.claim: 'true'
+              lightweight.claim: 'false'
+              claim.name: customerProfileId
+              jsonType.label: String
+              user.attribute: customerProfileId
+            id: "{{ AUTH_REALM }}-customerProfileId"
+            name: customerProfileId
+            protocol: openid-connect
+            protocolMapper: oidc-usermodel-attribute-mapper
+
+    - name: "Disable RSA-OAEP key component from {{ AUTH_REALM }}"
+      community.general.keycloak_component:
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        state: absent
+        name: rsa-enc-generated
+        parent_id: "{{ AUTH_REALM }}"
+        provider_id: rsa-enc-generated
+        provider_type: org.keycloak.keys.KeyProvider
+
+    - name: "Configure OpenShift client {{ AUTH_CLIENT }}"
+      community.general.keycloak_client:
+        state: present
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        realm: "{{ AUTH_REALM }}"
+        id: "{{ AUTH_CLIENT }}"
+        name: "{{ AUTH_CLIENT }}"
+        clientId: "{{ AUTH_CLIENT }}"
+        standardFlowEnabled: true
+        serviceAccountsEnabled: true
+        authorizationServicesEnabled: true
+        frontchannelLogout: true
+        publicClient: false
+        protocol: openid-connect
+        redirectUris: []
+        defaultClientScopes:
+          - openid
+          - profile
+          - customerProfileId
+          - "{{ AUTH_CLIENT }}"
+        authorizationSettings:
+          decisionStrategy: AFFIRMATIVE
+
+    - name: Get a new Keycloak client secret, passing client_id instead of id
+      community.general.keycloak_clientsecret_info:
+        validate_certs: false
+        auth_client_id: admin-cli
+        auth_keycloak_url: "{{ AUTH_URL }}"
+        auth_realm: master
+        auth_username: "{{ AUTH_ADMIN_USERNAME }}"
+        auth_password: "{{ AUTH_ADMIN_PASSWORD }}"
+        client_id: '{{ AUTH_CLIENT }}'
+        realm: "{{ AUTH_REALM }}"
+      register: AUTH_CLIENT_SECRET
+    - name: Set AUTH_SECRET variable
+      set_fact:
+        AUTH_SECRET: "{{ AUTH_CLIENT_SECRET.clientsecret_info.value }}"

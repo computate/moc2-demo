@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-ldap-setup
+  namespace: computateorg
+spec:
+  backoffLimit: 1000
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: keycloak-ldap-setup
+      volumes:
+        - name: keycloak-ldap-setup-playbook
+          configMap:
+            name: keycloak-ldap-setup-playbook
+        - name: keycloak-ldap-setup-defaults
+          configMap:
+            name: keycloak-ldap-setup-defaults
+        - name: keycloak-ldap-setup-templates
+          configMap:
+            name: keycloak-ldap-setup-templates
+        - name: keycloak-ldap-setup-tasks
+          configMap:
+            name: keycloak-ldap-setup-tasks
+        - name: home
+          emptyDir: {}
+        - name: ansible-tmp
+          emptyDir: {}
+      containers:
+        - name: keycloak-ldap-setup
+          image: quay.io/nerc-images/keycloak-ansible:ansible-collection-upgrade
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: keycloak-ldap-setup-playbook
+              mountPath: /home/ansible/.ansible/playbooks/
+            - name: keycloak-ldap-setup-tasks
+              mountPath: /home/ansible/.ansible/roles/keycloak-ldap-setup/tasks/
+            - name: keycloak-ldap-setup-defaults
+              mountPath: /home/ansible/.ansible/roles/keycloak-ldap-setup/defaults/
+            - name: keycloak-ldap-setup-templates
+              mountPath: /home/ansible/.ansible/roles/keycloak-ldap-setup/templates/
+            - name: home
+              mountPath: /home/ansible
+            - name: ansible-tmp
+              mountPath: /home/ansible/.ansible/tmp/
+          env:
+            - name: ANSIBLE_ROLES_PATH
+              value: /home/ansible/.ansible/roles
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          command: ["/bin/bash", "-c", "--"]
+          args:
+            - |
+                ansible-playbook /home/ansible/.ansible/playbooks/keycloak-ldap-setup.yaml

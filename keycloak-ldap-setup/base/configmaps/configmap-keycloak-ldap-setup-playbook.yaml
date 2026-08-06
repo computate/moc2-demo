@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-ldap-setup-playbook
+  namespace: computateorg
+data:
+  keycloak-ldap-setup.yaml: |
+    ---
+    - name: keycloak-ldap-setup
+      hosts: localhost
+      connection: local
+      gather_facts: false
+      roles:
+        - keycloak-ldap-setup
