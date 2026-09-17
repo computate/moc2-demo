@@ -1,10 +1,10 @@
 
 # Install the MOC 2.0 auth demo
 
-## Switch to the computate-freeipa namespace in the test cluster
+## Switch to the computate-lldap namespace in the test cluster
 
 ```bash
-oc project computate-freeipa
+oc project computate-lldap
 ```
 
 ##  Create a keycloak database secret

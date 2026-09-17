@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: database-setup-playbook
-  namespace: computate-freeipa
+  namespace: computate-lldap
 data:
   database-setup.yaml: |
     ---

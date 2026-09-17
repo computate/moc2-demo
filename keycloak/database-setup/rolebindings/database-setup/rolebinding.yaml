@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  namespace: computate-freeipa
+  namespace: computate-lldap
   name: database-setup-exec
 rules:
 - apiGroups: [""]
@@ -18,12 +18,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  namespace: computate-freeipa
+  namespace: computate-lldap
   name: database-setup-exec
 subjects:
 - kind: ServiceAccount
   name: database-setup
-  namespace: computate-freeipa
+  namespace: computate-lldap
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -32,7 +32,7 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  namespace: computate-freeipa
+  namespace: computate-lldap
   name: keycloak-database-setup-exec
 rules:
 - apiGroups: [""]
@@ -45,12 +45,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  namespace: computate-freeipa
+  namespace: computate-lldap
   name: keycloak-database-setup-exec
 subjects:
 - kind: ServiceAccount
   name: database-setup
-  namespace: computate-freeipa
+  namespace: computate-lldap
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

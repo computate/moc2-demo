@@ -1,6 +1,6 @@
 kind: Kustomization
 
-namespace: computate-freeipa-operator
+namespace: computate-lldap-operator
 
 labels:
 - includeSelectors: false

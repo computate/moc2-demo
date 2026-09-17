@@ -52,7 +52,7 @@ spec:
               value: CET
             - name: UID
               value: "1001"
-          image: nitnelave/lldap:latest
+          image: docker.io/lldap/lldap:latest
           ports:
             - containerPort: 3890
             - containerPort: 17170
