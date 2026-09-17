@@ -3,7 +3,7 @@ apiVersion: route.openshift.io/v1
 metadata:
   name: lldap
 spec:
-  host: freeipa.computate.org
+  host: lldap.computate.org
   to:
     kind: Service
     name: lldap

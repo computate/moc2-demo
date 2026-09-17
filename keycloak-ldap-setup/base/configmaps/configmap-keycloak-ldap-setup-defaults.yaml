@@ -11,7 +11,7 @@ data:
     #####################################
 
     # The namespace in OpenShift where lldap will run. 
-    LDAP_NAMESPACE: "{{ lookup('env', 'LDAP_NAMESPACE_' + SITE_SHORT_NAME) | default('computate-freeipa', true) }}"
+    LDAP_NAMESPACE: "{{ lookup('env', 'LDAP_NAMESPACE_' + SITE_SHORT_NAME) | default('computate-lldap', true) }}"
     # The LDAP connection URL. 
     LDAP_CONNECTION_URL: "ldap://lldap.{{ LDAP_NAMESPACE }}.svc:3890"
     # The LDAP secret with the admin credentials. 
@@ -27,7 +27,7 @@ data:
     # The short name for this site
     SITE_SHORT_NAME: moc
     # The namespace in OpenShift where Keycloak will run. 
-    AUTH_NAMESPACE: "{{ lookup('env', 'AUTH_NAMESPACE_' + SITE_SHORT_NAME) | default('computate-freeipa', true) }}"
+    AUTH_NAMESPACE: "{{ lookup('env', 'AUTH_NAMESPACE_' + SITE_SHORT_NAME) | default('computate-lldap', true) }}"
     # The Auth host name. 
     AUTH_HOST_NAME: "{{ lookup('env', 'AUTH_HOST_NAME_' + SITE_SHORT_NAME) | default('keycloak.computate.org', true) }}"
     # The Auth port. 

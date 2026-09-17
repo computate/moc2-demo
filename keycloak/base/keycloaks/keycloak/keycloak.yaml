@@ -2,7 +2,7 @@ apiVersion: k8s.keycloak.org/v2beta1
 kind: Keycloak
 metadata:
   name: keycloak
-  namespace: computate-freeipa
+  namespace: computate-lldap
   labels:
     app: keycloak
 spec:
